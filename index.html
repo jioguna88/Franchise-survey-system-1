@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가맹점 재고 현황 조사</title>
+
+<!-- 카카오톡 공유 미리보기용 메타태그 -->
+<meta property="og:title" content="가맹점 재고 현황 조사">
+<meta property="og:description" content="초도물량, 노쇼재고, 장기 미판매 재고 현황을 입력해 주세요.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://via.placeholder.com/600x315/4CAF50/ffffff?text=재고+현황+조사">
+
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+  h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; font-size: 22px; }
+  .description { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+  .form-group { margin-bottom: 15px; }
+  label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; font-size: 14px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+  
+  /* 검색 가능한 드롭다운 */
+  .searchable-dropdown { position: relative; }
+  .dropdown-list {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: white; border: 1px solid #ccc; border-top: none;
+    border-radius: 0 0 5px 5px; max-height: 200px; overflow-y: auto;
+    display: none; z-index: 100;
+  }
+  .dropdown-list.show { display: block; }
+  .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; }
+  .dropdown-item:hover { background: #e8f5e9; }
+  .dropdown-item.no-result { color: #999; cursor: default; }
+  
+  .item-row { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; }
+  .row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .row-title { font-weight: bold; color: #4CAF50; }
+  .row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  
+  @media (max-width: 600px) {
+    .row-grid { grid-template-columns: 1fr; }
+  }
+  
+  button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+  .btn-add { background: #2196F3; color: white; width: 100%; margin-bottom: 15px; }
+  .btn-remove { background: #f44336; color: white; padding: 5px 10px; font-size: 12px; }
+  .btn-submit { background: #4CAF50; color: white; width: 100%; padding: 15px; font-size: 16px; font-weight: bold; }
+  .btn-add:hover { background: #1976D2; }
+  .btn-submit:hover { background: #45a049; }
+  
+  #message { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; display: none; font-weight: bold; }
+  .success { background: #d4edda; color: #155724; }
+  .error { background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+
+<h1>📋 가맹점 재고 현황 조사</h1>
+<p class="description">
+  지점명을 선택하신 후, 품목별로 "품목 추가" 버튼을 눌러 보유하신 재고를 모두 입력해 주세요.<br>
+  한 번에 여러 품목을 입력해서 제출하실 수 있습니다.
+</p>
+
+<form id="surveyForm">
+  <div class="form-group">
+    <label>지점명</label>
+    <div class="searchable-dropdown">
+      <input type="text" id="branchSearch" placeholder="지점명을 입력하거나 클릭하여 선택" autocomplete="off" required>
+      <div class="dropdown-list" id="branchList"></div>
+    </div>
+  </div>
+
+  <div id="itemsContainer"></div>
+
+  <button type="button" class="btn-add" onclick="addItem()">＋ 품목 추가</button>
+  <button type="submit" class="btn-submit">제출하기</button>
+</form>
+
+<div id="message"></div>
+
+<script>
+  const WEB_APP_URL = 'YOUR_WEB_APP_URL'; // ← Apps Script 배포 URL 입력
+  
+  // 지점 목록 (필요에 따라 수정)
+  const BRANCHES = [
+    '강남점', '강북점', '강서점', '강동점',
+    '서초점', '송파점', '마포점', '용산점',
+    '종로점', '중구점', '성동점', '광진점',
+    '동대문점', '중랑점', '성북점', '도봉점',
+    '노원점', '은평점', '서대문점', '양천점',
+    '구로점', '금천점', '영등포점', '동작점',
+    '관악점', '인천점', '수원점', '성남점',
+    '부산점', '대구점', '대전점', '광주점'
+  ];
+
+  let itemCount = 0;
+
+  // ─── 지점 드롭다운 검색 기능 ───
+  const branchInput = document.getElementById('branchSearch');
+  const branchList = document.getElementById('branchList');
+
+  function renderBranchList(keyword = '') {
+    const filtered = BRANCHES.filter(b => b.toLowerCase().includes(keyword.toLowerCase()));
+    if (filtered.length === 0) {
+      branchList.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없습니다</div>';
+    } else {
+      branchList.innerHTML = filtered.map(b => 
+        `<div class="dropdown-item" onclick="selectBranch('${b}')">${b}</div>`
+      ).join('');
+    }
+  }
+
+  function selectBranch(name) {
+    branchInput.value = name;
+    branchList.classList.remove('show');
+  }
+
+  branchInput.addEventListener('focus', () => {
+    renderBranchList(branchInput.value);
+    branchList.classList.add('show');
+  });
+
+  branchInput.addEventListener('input', () => {
+    renderBranchList(branchInput.value);
+    branchList.classList.add('show');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.searchable-dropdown')) {
+      branchList.classList.remove('show');
+    }
+  });
+
+  // ─── 품목 추가/삭제 ───
+  function addItem() {
+    itemCount++;
+    const container = document.getElementById('itemsContainer');
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.innerHTML = `
+      <div class="row-header">
+        <span class="row-title">품목 #${itemCount}</span>
+        <button type="button" class="btn-remove" onclick="this.parentElement.parentElement.remove()">삭제</button>
+      </div>
+      <div class="row-grid">
+        <div>
+          <label>재고 구분</label>
+          <select class="category" required>
+            <option value="">선택</option>
+            <option value="초도물량">초도물량</option>
+            <option value="노쇼재고">노쇼재고</option>
+            <option value="장기 미판매 재고">장기 미판매 재고</option>
+          </select>
+        </div>
+        <div>
+          <label>품목명</label>
+          <input type="text" class="itemName" required>
+        </div>
+        <div>
+          <label>수량</label>
+          <input type="number" class="quantity" min="1" required>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  }
+
+  addItem(); // 진입 시 1개 자동 추가
+
+  // ─── 폼 제출 ───
+  document.getElementById('surveyForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const branch = branchInput.value.trim();
+    if (!BRANCHES.includes(branch)) {
+      showMessage('지점명을 목록에서 선택해 주세요.', 'error');
+      return;
+    }
+
+    const rows = document.querySelectorAll('.item-row');
+    const items = [];
+    rows.forEach(row => {
+      items.push({
+        category: row.querySelector('.category').value,
+        itemName: row.querySelector('.itemName').value,
+        quantity: row.querySelector('.quantity').value
+      });
+    });
+
+    if (items.length === 0) {
+      showMessage('최소 1개의 품목을 입력해 주세요.', 'error');
+      return;
+    }
+
+    try {
+      await fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch: branch, items: items })
+      });
+      showMessage(`✅ 제출 완료! ${items.length}개 품목이 등록되었습니다.`, 'success');
+      document.getElementById('surveyForm').reset();
+      document.getElementById('itemsContainer').innerHTML = '';
+      itemCount = 0;
+      addItem();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      showMessage('제출 중 오류가 발생했습니다: ' + err.message, 'error');
+    }
+  });
+
+  function showMessage(text, type) {
+    const msg = document.getElementById('message');
+    msg.textContent = text;
+    msg.className = type;
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 5000);
+  }
+</script>
+
+</body>
+</html>

@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>가맹점 재고 현황 조사</title>
-
 <!-- 카카오톡 공유 미리보기용 메타태그 -->
 <meta property="og:title" content="가맹점 재고 현황 조사">
 <meta property="og:description" content="초도물량, 노쇼재고, 장기 미판매 재고 현황을 입력해 주세요.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://raw.githubusercontent.com/jioguna88/Franchise-survey-system-1/refs/heads/main/CloverBridge_Logo.png">
-
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Malgun Gothic', -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
@@ -19,48 +17,39 @@
   .form-group { margin-bottom: 15px; }
   label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; font-size: 14px; }
   input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
-  
-  /* 검색 가능한 드롭다운 */
   .searchable-dropdown { position: relative; }
-  .dropdown-list {
-    position: absolute; top: 100%; left: 0; right: 0;
-    background: white; border: 1px solid #ccc; border-top: none;
-    border-radius: 0 0 5px 5px; max-height: 200px; overflow-y: auto;
-    display: none; z-index: 100;
-  }
+  .dropdown-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 5px 5px; max-height: 240px; overflow-y: auto; display: none; z-index: 100; }
   .dropdown-list.show { display: block; }
-  .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; }
+  .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
   .dropdown-item:hover { background: #e8f5e9; }
   .dropdown-item.no-result { color: #999; cursor: default; }
-  
   .item-row { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; }
   .row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .row-title { font-weight: bold; color: #4CAF50; }
   .row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  
-  @media (max-width: 600px) {
-    .row-grid { grid-template-columns: 1fr; }
-  }
-  
+  .hint { display: block; color: #d32f2f; font-size: 12px; margin-top: 4px; }
+  @media (max-width: 600px) { .row-grid { grid-template-columns: 1fr; } }
   button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
   .btn-add { background: #2196F3; color: white; width: 100%; margin-bottom: 15px; }
   .btn-remove { background: #f44336; color: white; padding: 5px 10px; font-size: 12px; }
   .btn-submit { background: #4CAF50; color: white; width: 100%; padding: 15px; font-size: 16px; font-weight: bold; }
   .btn-add:hover { background: #1976D2; }
   .btn-submit:hover { background: #45a049; }
-  
+  .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
   #message { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; display: none; font-weight: bold; }
   .success { background: #d4edda; color: #155724; }
   .error { background: #f8d7da; color: #721c24; }
+  #loadingBanner { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 15px; font-size: 14px; }
 </style>
 </head>
 <body>
-
 <h1>📋 가맹점 재고 현황 조사</h1>
 <p class="description">
-  지점명을 선택하신 후, 품목별로 "품목 추가" 버튼을 눌러 보유하신 재고를 모두 입력해 주세요.<br>
-  한 번에 여러 품목을 입력해서 제출하실 수 있습니다.
+  지점명을 선택 후, "품목 추가" 버튼을 눌러 보유 재고를 입력하세요.<br>
+  여러 품목을 한 번에 제출할 수 있으며, <strong>품목명은 반드시 POS에 등록된 상품명</strong>으로 선택해 주세요.
 </p>
+
+<div id="loadingBanner">⏳ 상품 목록을 불러오는 중입니다...</div>
 
 <form id="surveyForm">
   <div class="form-group">
@@ -70,234 +59,107 @@
       <div class="dropdown-list" id="branchList"></div>
     </div>
   </div>
-
   <div id="itemsContainer"></div>
-
   <button type="button" class="btn-add" onclick="addItem()">＋ 품목 추가</button>
-  <button type="submit" class="btn-submit">제출하기</button>
+  <button type="submit" class="btn-submit" id="submitBtn" disabled>제출하기</button>
 </form>
-
 <div id="message"></div>
 
 <script>
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxlpac21KBwHc3gP3M0J1lu1IMaCzjIfWX96oach6RZtBdmHlG5UlCLyaVDDXl1q9Hi/exec'; // ← Apps Script 배포 URL 입력
-  
-  // 지점 목록 (필요에 따라 수정)
+  // ====== 설정 ======
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxOg0W_4Y8RNeVzdmX3F7hYC6tUukjPLSGrbfufV6WBA20ohAEwEh16S_4wx5RuB0Gc/exec'; // ← Apps Script 배포 URL 입력
+
+  // 지점 목록 (172개)
   const BRANCHES = [
-  '용산해링턴스퀘어점',
-  '도원힐스테이트점',
-  '우장산힐스테이트점',
-  '답십리파크자이점',
-  '마포도화현대점',
-  '부산동래미남점',
-  '삼성롯데캐슬점',
-  '잠실파크리오점',
-  '자양롯데캐슬점',
-  '다이클로_경북_구미산동점',
-  '성남상대원시장점',
-  '울산지웰시티자이1단지점',
-  '왕십리뉴타운센트라스점',
-  '평촌푸르지오점',
-  '옥계현진에버빌점',
-  '신봉동일하이빌점',
-  '성복버들치마을점',
-  '세종새뜸마을점',
-  '김포아도니스2차점',
-  '양덕남광하우스토리점',
-  '철원동송점',
-  '월성삼정에듀파크점',
-  '송산금강펜테리움점',
-  '대전아이파크시티점',
-  '신동백두산위브점',
-  '초곡힐스테이트점',
-  '월배삼정포레스트점',
-  '서대구역센텀화성파크드림점',
-  '광명아크포레자이위브점',
-  '송파헬리오시티점',
-  '대전리더스시티4단지점',
-  '쌍문세라믹사거리점',
-  '중리롯데캐슬점',
-  '세종산울마을점',
-  '양덕메트로시티점',
-  '도래울센트럴더힐점',
-  '산동제이원스파랜드점',
-  '모현몬테로이점',
-  '광안쌍용예가디오션점',
-  '신창호반베르디움5차점',
-  '송정유보라아이비파크점',
-  '노형정든마을주공점',
-  '당감롯데캐슬라센트점',
-  '송도마리나베이점',
-  '송도센트럴파크점',
-  '해운대더샵센텀파크점',
-  '다산지금데시앙점',
-  '계림아이파크점',
-  '안양역푸르지오더샵점',
-  '부평해링턴플레이스점',
-  '삼화부영사랑점',
-  '명지오션시티 김원효점',
-  '화성향남1지구점',
-  '송도퍼스트파크점',
-  '두류역자이점',
-  '검단힐스테이트점',
-  '미아뉴타운점',
-  '역북골드클래스점',
-  '명륜2차아이파크점',
-  '비산평촌래미안푸르지오점',
-  '고덕브리티시점',
-  '오목천상송주공점',
-  '창원토월성원점',
-  'GS하이츠자이점',
-  '서산예천점',
-  '율하스카이시티점',
-  '명곡미래빌점',
-  '남산자이하늘채점',
-  '오류검단자이점',
-  '래미안힐스테이트고덕점',
-  '창원유니시티3단지점',
-  '구월아시아드점',
-  '언양두산위브점',
-  '미사그랑파사쥬점',
-  '연동신라점',
-  '검암로열파크시티점',
-  '도안수목토점',
-  '안산반달섬점',
-  '태릉해링턴플레이스점',
-  '신촌푸르지오점',
-  '주안에듀포레점',
-  '루원e편한세상점',
-  '광주용산지구점',
-  '화성향남2지구점',
-  '제천장락주공점',
-  '안동강남점',
-  '매곡에일린의뜰점',
-  '은어송1단지점',
-  '관악두산위브점',
-  '파주운정신도시아이파크점',
-  '상암월드컵파크6단지점',
-  '힐스테이트갈매점',
-  '화서역파크푸르지오점',
-  '둔산더샵점',
-  '구미문성레이크자이점',
-  '원주반곡점',
-  '일광자이푸르지오점',
-  '수원호매실점',
-  '대연롯데캐슬레전드점',
-  '마산해운점',
-  '음성푸르지오점',
-  '대전용산호반써밋점',
-  '올림픽파크포레온점',
-  '중동팰리스카운티점',
-  '부산대원칸타빌점',
-  '힐스테이트송도더스카이점',
-  '한라비발디센텀시티점',
-  '창원대방점',
-  '신중동역푸르지오시티점',
-  '안성삼정그린점',
-  '수영진로마트점',
-  '테크노예미지더센트럴점',
-  '매탄위브하늘채점',
-  '펜타힐즈더샵2차점',
-  'e편한세상평내메트로원점',
-  '울산범서구영점',
-  '세종새샘마을점',
-  '연산롯데캐슬골드포레점',
-  '부산연지초점',
-  '영종하늘도시점',
-  '힐스테이트운정점',
-  '대구다사점',
-  '고덕센트럴아이파크점',
-  '평촌엘프라우드점',
-  '두산알프하임점',
-  '천안레이크타운푸르지오점',
-  '산성역자이푸르지오점',
-  '시티오씨엘점',
-  '김해율하시티프라디움점',
-  '힐스테이트리버시티2단지점',
-  '서재동화아이위시점',
-  '동탄중흥S클래스24단지점',
-  '오송역그랜드센텀점',
-  '동문10단지디이스트점',
-  '포항펜타시티점',
-  '외도부영점',
-  '노형센트럴점',
-  '중동미리내점',
-  '센텀재송점',
-  '제주아라점',
-  '김천혁신점',
-  '대전선화하늘채점',
-  '원주성원점',
-  '평택용이e편한점',
-  '전주에코시티점',
-  '신내프라디움점',
-  '협성휴포레용황점',
-  '신정푸른마을점',
-  '명지국제신도시 김원효점',
-  '제주도남점',
-  '수원아이파크시티점',
-  '수목원호정포레스트점',
-  '오창롯데캐슬더하이스트점',
-  '의정부백병원점',
-  '더샵염주센트럴파크점',
-  '매천한신더휴점',
-  '용현자이크레스트점',
-  '대전전민점',
-  '금호위파크마륵공원점',
-  '충북혁신점',
-  '인천당하점',
-  '인천호반베르디움점',
-  '서귀포서홍점',
-  '인천호구포 이용대점',
-  '용인동아솔레시티점',
-  '광주수완이용대점',
-  '구미산동 이용대점',
-  '대구수성이용대점',
-  '죽전대우월드마크점',
-  '양주옥정대방노블랜드점',
-  '군자장안초점',
-  '간석래미안자이점',
-  '오산시티자이1차점'
+    '용산해링턴스퀘어점','도원힐스테이트점','우장산힐스테이트점','답십리파크자이점','마포도화현대점',
+    '부산동래미남점','삼성롯데캐슬점','잠실파크리오점','자양롯데캐슬점','다이클로_경북_구미산동점',
+    '성남상대원시장점','울산지웰시티자이1단지점','왕십리뉴타운센트라스점','평촌푸르지오점','옥계현진에버빌점',
+    '신봉동일하이빌점','성복버들치마을점','세종새뜸마을점','김포아도니스2차점','양덕남광하우스토리점',
+    '철원동송점','월성삼정에듀파크점','송산금강펜테리움점','대전아이파크시티점','신동백두산위브점',
+    '초곡힐스테이트점','월배삼정포레스트점','서대구역센텀화성파크드림점','광명아크포레자이위브점','송파헬리오시티점',
+    '대전리더스시티4단지점','쌍문세라믹사거리점','중리롯데캐슬점','세종산울마을점','양덕메트로시티점',
+    '도래울센트럴더힐점','산동제이원스파랜드점','모현몬테로이점','광안쌍용예가디오션점','신창호반베르디움5차점',
+    '송정유보라아이비파크점','노형정든마을주공점','당감롯데캐슬라센트점','송도마리나베이점','송도센트럴파크점',
+    '해운대더샵센텀파크점','다산지금데시앙점','계림아이파크점','안양역푸르지오더샵점','부평해링턴플레이스점',
+    '삼화부영사랑점','명지오션시티 김원효점','화성향남1지구점','송도퍼스트파크점','두류역자이점',
+    '검단힐스테이트점','미아뉴타운점','역북골드클래스점','명륜2차아이파크점','비산평촌래미안푸르지오점',
+    '고덕브리티시점','오목천상송주공점','창원토월성원점','GS하이츠자이점','서산예천점',
+    '율하스카이시티점','명곡미래빌점','남산자이하늘채점','오류검단자이점','래미안힐스테이트고덕점',
+    '창원유니시티3단지점','구월아시아드점','언양두산위브점','미사그랑파사쥬점','연동신라점',
+    '검암로열파크시티점','도안수목토점','안산반달섬점','태릉해링턴플레이스점','신촌푸르지오점',
+    '주안에듀포레점','루원e편한세상점','광주용산지구점','화성향남2지구점','제천장락주공점',
+    '안동강남점','매곡에일린의뜰점','은어송1단지점','관악두산위브점','파주운정신도시아이파크점',
+    '상암월드컵파크6단지점','힐스테이트갈매점','화서역파크푸르지오점','둔산더샵점','구미문성레이크자이점',
+    '원주반곡점','일광자이푸르지오점','수원호매실점','대연롯데캐슬레전드점','마산해운점',
+    '음성푸르지오점','대전용산호반써밋점','올림픽파크포레온점','중동팰리스카운티점','부산대원칸타빌점',
+    '힐스테이트송도더스카이점','한라비발디센텀시티점','창원대방점','신중동역푸르지오시티점','안성삼정그린점',
+    '수영진로마트점','테크노예미지더센트럴점','매탄위브하늘채점','펜타힐즈더샵2차점','e편한세상평내메트로원점',
+    '울산범서구영점','세종새샘마을점','연산롯데캐슬골드포레점','부산연지초점','영종하늘도시점',
+    '힐스테이트운정점','대구다사점','고덕센트럴아이파크점','평촌엘프라우드점','두산알프하임점',
+    '천안레이크타운푸르지오점','산성역자이푸르지오점','시티오씨엘점','김해율하시티프라디움점','힐스테이트리버시티2단지점',
+    '서재동화아이위시점','동탄중흥S클래스24단지점','오송역그랜드센텀점','동문10단지디이스트점','포항펜타시티점',
+    '외도부영점','노형센트럴점','중동미리내점','센텀재송점','제주아라점',
+    '김천혁신점','대전선화하늘채점','원주성원점','평택용이e편한점','전주에코시티점',
+    '신내프라디움점','협성휴포레용황점','신정푸른마을점','명지국제신도시 김원효점','제주도남점',
+    '수원아이파크시티점','수목원호정포레스트점','오창롯데캐슬더하이스트점','의정부백병원점','더샵염주센트럴파크점',
+    '매천한신더휴점','용현자이크레스트점','대전전민점','금호위파크마륵공원점','충북혁신점',
+    '인천당하점','인천호반베르디움점','서귀포서홍점','인천호구포 이용대점','용인동아솔레시티점',
+    '광주수완이용대점','구미산동 이용대점','대구수성이용대점','죽전대우월드마크점','양주옥정대방노블랜드점',
+    '군자장안초점','간석래미안자이점','오산시티자이1차점'
   ];
 
+  // 품목 목록은 구글 시트에서 동적으로 로드
+  let PRODUCTS = [];
   let itemCount = 0;
 
-  // ─── 지점 드롭다운 검색 기능 ───
-  const branchInput = document.getElementById('branchSearch');
-  const branchList = document.getElementById('branchList');
-
-  function renderBranchList(keyword = '') {
-    const filtered = BRANCHES.filter(b => b.toLowerCase().includes(keyword.toLowerCase()));
-    if (filtered.length === 0) {
-      branchList.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없습니다</div>';
-    } else {
-      branchList.innerHTML = filtered.map(b => 
-        `<div class="dropdown-item" onclick="selectBranch('${b}')">${b}</div>`
-      ).join('');
+  // ====== 검색 가능 드롭다운 ======
+  function setupDropdown(inputEl, listEl, getDataList) {
+    function render(keyword = '') {
+      const data = getDataList();
+      if (data.length === 0) {
+        listEl.innerHTML = '<div class="dropdown-item no-result">목록 로드 중...</div>';
+        return;
+      }
+      if (data.length > 100 && keyword.length < 1) {
+        listEl.innerHTML = '<div class="dropdown-item no-result">검색어를 입력해 주세요 (예: 마카다미아, 김, 양말)</div>';
+        return;
+      }
+      const filtered = data
+        .filter(item => item.toLowerCase().includes(keyword.toLowerCase()))
+        .slice(0, 100);
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없습니다</div>';
+      } else {
+        listEl.innerHTML = filtered.map(item =>
+          `<div class="dropdown-item">${item.replace(/</g, '&lt;')}</div>`
+        ).join('');
+        listEl.querySelectorAll('.dropdown-item:not(.no-result)').forEach(el => {
+          el.addEventListener('mousedown', e => {
+            e.preventDefault();
+            inputEl.value = el.textContent;
+            listEl.classList.remove('show');
+          });
+        });
+      }
     }
+    inputEl.addEventListener('focus', () => { render(inputEl.value); listEl.classList.add('show'); });
+    inputEl.addEventListener('input', () => { render(inputEl.value); listEl.classList.add('show'); });
   }
 
-  function selectBranch(name) {
-    branchInput.value = name;
-    branchList.classList.remove('show');
-  }
-
-  branchInput.addEventListener('focus', () => {
-    renderBranchList(branchInput.value);
-    branchList.classList.add('show');
-  });
-
-  branchInput.addEventListener('input', () => {
-    renderBranchList(branchInput.value);
-    branchList.classList.add('show');
-  });
-
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', e => {
     if (!e.target.closest('.searchable-dropdown')) {
-      branchList.classList.remove('show');
+      document.querySelectorAll('.dropdown-list').forEach(l => l.classList.remove('show'));
     }
   });
 
-  // ─── 품목 추가/삭제 ───
+  // 지점 드롭다운 초기화
+  setupDropdown(
+    document.getElementById('branchSearch'),
+    document.getElementById('branchList'),
+    () => BRANCHES
+  );
+
+  // ====== 품목 행 추가 ======
   function addItem() {
     itemCount++;
     const container = document.getElementById('itemsContainer');
@@ -320,8 +182,11 @@
         </div>
         <div>
           <label>품목명</label>
-           <input type="text" class="itemName" required placeholder="POS에 등록된 상품명으로 입력">
-           <small class="hint">⚠ 반드시 POS에 등록된 상품명으로 작성 부탁드립니다.</small>
+          <div class="searchable-dropdown">
+            <input type="text" class="itemName" placeholder="상품명 검색" autocomplete="off" required>
+            <div class="dropdown-list"></div>
+          </div>
+          <small class="hint">⚠ POS에 등록된 상품명만 선택 가능</small>
         </div>
         <div>
           <label>수량</label>
@@ -330,41 +195,72 @@
       </div>
     `;
     container.appendChild(div);
+    const newInput = div.querySelector('.itemName');
+    const newList = div.querySelector('.dropdown-list');
+    setupDropdown(newInput, newList, () => PRODUCTS);
   }
 
-  addItem(); // 진입 시 1개 자동 추가
+  // ====== 시트에서 품목 목록 로드 ======
+  async function loadProducts() {
+    const banner = document.getElementById('loadingBanner');
+    const submitBtn = document.getElementById('submitBtn');
+    try {
+      const res = await fetch(WEB_APP_URL);
+      const data = await res.json();
+      if (data.products && Array.isArray(data.products)) {
+        PRODUCTS = data.products;
+        banner.style.background = '#d4edda';
+        banner.style.color = '#155724';
+        banner.textContent = `✅ 상품 ${PRODUCTS.length.toLocaleString()}개 로드 완료`;
+        setTimeout(() => { banner.style.display = 'none'; }, 2000);
+        submitBtn.disabled = false;
+      } else {
+        throw new Error('잘못된 응답 형식');
+      }
+    } catch (err) {
+      banner.style.background = '#f8d7da';
+      banner.style.color = '#721c24';
+      banner.textContent = '❌ 상품 목록 로드 실패. 페이지를 새로고침 해주세요.';
+      console.error(err);
+    }
+  }
 
-  // ─── 폼 제출 ───
-  document.getElementById('surveyForm').addEventListener('submit', async function(e) {
+  // 첫 품목 행 추가 + 품목 로드 시작
+  addItem();
+  loadProducts();
+
+  // ====== 폼 제출 ======
+  document.getElementById('surveyForm').addEventListener('submit', async e => {
     e.preventDefault();
-    
-    const branch = branchInput.value.trim();
+    const branch = document.getElementById('branchSearch').value.trim();
     if (!BRANCHES.includes(branch)) {
       showMessage('지점명을 목록에서 선택해 주세요.', 'error');
       return;
     }
-
     const rows = document.querySelectorAll('.item-row');
-    const items = [];
-    rows.forEach(row => {
-      items.push({
-        category: row.querySelector('.category').value,
-        itemName: row.querySelector('.itemName').value,
-        quantity: row.querySelector('.quantity').value
-      });
-    });
-
-    if (items.length === 0) {
+    if (rows.length === 0) {
       showMessage('최소 1개의 품목을 입력해 주세요.', 'error');
       return;
     }
-
+    const items = [];
+    let invalidProduct = '';
+    for (const row of rows) {
+      const name = row.querySelector('.itemName').value.trim();
+      const category = row.querySelector('.category').value;
+      const quantity = row.querySelector('.quantity').value;
+      if (!PRODUCTS.includes(name)) { invalidProduct = name; break; }
+      items.push({ category, itemName: name, quantity });
+    }
+    if (invalidProduct) {
+      showMessage(`"${invalidProduct}"은(는) 등록된 상품명이 아닙니다. 목록에서 선택해 주세요.`, 'error');
+      return;
+    }
     try {
       await fetch(WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch: branch, items: items })
+        body: JSON.stringify({ branch, items })
       });
       showMessage(`✅ 제출 완료! ${items.length}개 품목이 등록되었습니다.`, 'success');
       document.getElementById('surveyForm').reset();
@@ -385,6 +281,5 @@
     setTimeout(() => { msg.style.display = 'none'; }, 5000);
   }
 </script>
-
 </body>
 </html>

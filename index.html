@@ -3,73 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>가맹점 재고 현황 조사</title>
+<title>다이클로 선결제 시스템 도입 사전 설문조사</title>
 <!-- 카카오톡 공유 미리보기용 메타태그 -->
-<meta property="og:title" content="가맹점 재고 현황 조사">
-<meta property="og:description" content="초도물량, 노쇼재고, 장기 미판매 재고 현황을 입력해 주세요.">
+<meta property="og:title" content="다이클로 선결제 시스템 도입 사전 설문조사">
+<meta property="og:description" content="토스페이먼츠(PG) 선결제 시스템 도입을 위한 가맹점 참여 의사 확인 설문입니다.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://raw.githubusercontent.com/jioguna88/Franchise-survey-system-1/refs/heads/main/CloverBridge_Logo.png">
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Malgun Gothic', -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
   h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; font-size: 22px; }
-  .description { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
-  .form-group { margin-bottom: 15px; }
-  label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; font-size: 14px; }
-  input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+  .intro { background: white; padding: 18px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; color: #444; font-size: 14px; line-height: 1.7; }
+  .intro p { margin: 0 0 10px 0; }
+  .intro .notice { color: #d32f2f; font-size: 13px; margin-top: 12px; }
+  .fee-image { width: 100%; border-radius: 6px; margin: 12px 0 0 0; border: 1px solid #eee; }
+  .form-group { background: white; padding: 18px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; }
+  label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; font-size: 15px; }
+  .required { color: #d32f2f; }
+  input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 90px; }
   .searchable-dropdown { position: relative; }
   .dropdown-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 5px 5px; max-height: 240px; overflow-y: auto; display: none; z-index: 100; }
   .dropdown-list.show { display: block; }
   .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
   .dropdown-item:hover { background: #e8f5e9; }
   .dropdown-item.no-result { color: #999; cursor: default; }
-  .item-row { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; }
-  .row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .row-title { font-weight: bold; color: #4CAF50; }
-  .row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .hint { display: block; color: #d32f2f; font-size: 12px; margin-top: 4px; }
-  @media (max-width: 600px) { .row-grid { grid-template-columns: 1fr; } }
-  button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
-  .btn-add { background: #2196F3; color: white; width: 100%; margin-bottom: 15px; }
-  .btn-remove { background: #f44336; color: white; padding: 5px 10px; font-size: 12px; }
-  .btn-submit { background: #4CAF50; color: white; width: 100%; padding: 15px; font-size: 16px; font-weight: bold; }
-  .btn-add:hover { background: #1976D2; }
-  .btn-submit:hover { background: #45a049; }
-  .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
+  .radio-group { display: flex; flex-direction: column; gap: 10px; }
+  .radio-option { display: flex; align-items: center; padding: 12px; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .radio-option:hover { background: #f9f9f9; }
+  .radio-option input[type="radio"] { margin-right: 10px; transform: scale(1.2); cursor: pointer; }
+  .radio-option.checked { border-color: #4CAF50; background: #e8f5e9; }
+  #reasonGroup { display: none; margin-top: 12px; }
+  #reasonGroup.show { display: block; }
+  button { padding: 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; background: #4CAF50; color: white; }
+  button:hover { background: #45a049; }
   #message { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; display: none; font-weight: bold; }
   .success { background: #d4edda; color: #155724; }
   .error { background: #f8d7da; color: #721c24; }
-  #loadingBanner { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 15px; font-size: 14px; }
 </style>
 </head>
 <body>
-<h1>📋 가맹점 재고 현황 조사</h1>
-<p class="description">
-  지점명을 선택 후, "품목 추가" 버튼을 눌러 보유 재고를 입력하세요.<br>
-  여러 품목을 한 번에 제출할 수 있으며, <strong>품목명은 반드시 POS에 등록된 상품명</strong>으로 선택해 주세요.
-</p>
+<h1>📋 다이클로 선결제 시스템 도입 사전 설문조사</h1>
 
-<div id="loadingBanner">⏳ 상품 목록을 불러오는 중입니다...</div>
+<div class="intro">
+  <p>다이클로 주문링크 내 <strong>토스페이먼츠(PG) 선결제 시스템</strong> 도입을 위해 가맹점 참여 의사를 확인하고자 합니다.</p>
+  <p>선결제 도입 시 고객이 주문 시점에 결제를 완료하게 되어 <strong>노쇼를 방지</strong>할 수 있으며, 정산 또한 기존 카드사 정산 대비 빠르게 진행될 수 있습니다.</p>
+  <div class="notice">
+    ※ 토스페이먼츠 계약은 본사가 아닌 각 가맹점과 토스페이먼츠 간 직접 계약으로 진행됩니다.<br>
+    ※ 계약 수수료는 가맹점 연매출 구간에 따라 상이합니다.<br>
+    ※ 카드사 수수료 별도 / 계약 수수료 관련 세부 사항은 아래 이미지 또는 어드민 공지사항의 '연매출에 따른 가맹점 계약수수료' 참조
+  </div>
+  <img src="fee-table.png" alt="하위가맹점 계약 수수료 표" class="fee-image">
+</div>
 
 <form id="surveyForm">
   <div class="form-group">
-    <label>지점명</label>
+    <label>매장명 <span class="required">*</span></label>
     <div class="searchable-dropdown">
-      <input type="text" id="branchSearch" placeholder="지점명을 입력하거나 클릭하여 선택" autocomplete="off" required>
+      <input type="text" id="branchSearch" placeholder="매장명을 입력하거나 클릭하여 선택" autocomplete="off" required>
       <div class="dropdown-list" id="branchList"></div>
     </div>
   </div>
-  <div id="itemsContainer"></div>
-  <button type="button" class="btn-add" onclick="addItem()">＋ 품목 추가</button>
-  <button type="submit" class="btn-submit" id="submitBtn" disabled>제출하기</button>
+
+  <div class="form-group">
+    <label>토스페이먼츠 선결제 시스템 도입에 동의하십니까? <span class="required">*</span></label>
+    <div class="radio-group">
+      <label class="radio-option">
+        <input type="radio" name="agreement" value="동의합니다." required>
+        <span>동의합니다.</span>
+      </label>
+      <label class="radio-option">
+        <input type="radio" name="agreement" value="현재는 도입 계획이 없습니다." required>
+        <span>현재는 도입 계획이 없습니다.</span>
+      </label>
+    </div>
+
+    <div id="reasonGroup">
+      <label style="margin-top: 14px;">미도입 사유를 입력해 주세요 <span class="required">*</span></label>
+      <textarea id="reason" placeholder="도입을 보류하시는 이유를 자유롭게 작성해 주세요."></textarea>
+    </div>
+  </div>
+
+  <button type="submit">제출하기</button>
 </form>
 <div id="message"></div>
 
 <script>
   // ====== 설정 ======
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxOg0W_4Y8RNeVzdmX3F7hYC6tUukjPLSGrbfufV6WBA20ohAEwEh16S_4wx5RuB0Gc/exec'; // ← Apps Script 배포 URL 입력
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwiUhjD5gwJzGXBE5R23rpFoccY4wpI2holFyEL805hCBb5Annj14QYPnbqRe8e1R35/exec'; // ← Apps Script 배포 URL 입력
 
-  // 지점 목록 (172개)
+  // 매장 목록 (174개)
   const BRANCHES = [
     '용산해링턴스퀘어점','도원힐스테이트점','우장산힐스테이트점','답십리파크자이점','마포도화현대점',
     '부산동래미남점','삼성롯데캐슬점','잠실파크리오점','자양롯데캐슬점','다이클로_경북_구미산동점',
@@ -105,33 +128,20 @@
     '매천한신더휴점','용현자이크레스트점','대전전민점','금호위파크마륵공원점','충북혁신점',
     '인천당하점','인천호반베르디움점','서귀포서홍점','인천호구포 이용대점','용인동아솔레시티점',
     '광주수완이용대점','구미산동 이용대점','대구수성이용대점','죽전대우월드마크점','양주옥정대방노블랜드점',
-    '군자장안초점','간석래미안자이점','오산시티자이1차점'
+    '군자장안초점','간석래미안자이점','오산시티자이1차점','서귀포서홍점','여주가남점'
   ];
 
-  // 품목 목록은 구글 시트에서 동적으로 로드
-  let PRODUCTS = [];
-  let itemCount = 0;
-
   // ====== 검색 가능 드롭다운 ======
-  function setupDropdown(inputEl, listEl, getDataList) {
+  function setupDropdown(inputEl, listEl, dataList) {
     function render(keyword = '') {
-      const data = getDataList();
-      if (data.length === 0) {
-        listEl.innerHTML = '<div class="dropdown-item no-result">목록 로드 중...</div>';
-        return;
-      }
-      if (data.length > 100 && keyword.length < 1) {
-        listEl.innerHTML = '<div class="dropdown-item no-result">검색어를 입력해 주세요 (예: 용산해링턴점, 마카다미아 등 지점명과 상품명)</div>';
-        return;
-      }
-      const filtered = data
-        .filter(item => item.toLowerCase().includes(keyword.toLowerCase()))
-        .slice(0, 100);
+      const filtered = dataList.filter(item =>
+        item.toLowerCase().includes(keyword.toLowerCase())
+      );
       if (filtered.length === 0) {
         listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없습니다</div>';
       } else {
         listEl.innerHTML = filtered.map(item =>
-          `<div class="dropdown-item">${item.replace(/</g, '&lt;')}</div>`
+          `<div class="dropdown-item">${item}</div>`
         ).join('');
         listEl.querySelectorAll('.dropdown-item:not(.no-result)').forEach(el => {
           el.addEventListener('mousedown', e => {
@@ -152,121 +162,64 @@
     }
   });
 
-  // 지점 드롭다운 초기화
   setupDropdown(
     document.getElementById('branchSearch'),
     document.getElementById('branchList'),
-    () => BRANCHES
+    BRANCHES
   );
 
-  // ====== 품목 행 추가 ======
-  function addItem() {
-    itemCount++;
-    const container = document.getElementById('itemsContainer');
-    const div = document.createElement('div');
-    div.className = 'item-row';
-    div.innerHTML = `
-      <div class="row-header">
-        <span class="row-title">품목 #${itemCount}</span>
-        <button type="button" class="btn-remove" onclick="this.parentElement.parentElement.remove()">삭제</button>
-      </div>
-      <div class="row-grid">
-        <div>
-          <label>재고 구분</label>
-          <select class="category" required>
-            <option value="">선택</option>
-            <option value="초도물량">초도물량</option>
-            <option value="노쇼재고">노쇼재고</option>
-            <option value="장기 미판매 재고">장기 미판매 재고</option>
-          </select>
-        </div>
-        <div>
-          <label>품목명</label>
-          <div class="searchable-dropdown">
-            <input type="text" class="itemName" placeholder="상품명 검색" autocomplete="off" required>
-            <div class="dropdown-list"></div>
-          </div>
-          <small class="hint">⚠ POS에 등록된 상품명만 선택 가능</small>
-        </div>
-        <div>
-          <label>수량</label>
-          <input type="number" class="quantity" min="1" required>
-        </div>
-      </div>
-    `;
-    container.appendChild(div);
-    const newInput = div.querySelector('.itemName');
-    const newList = div.querySelector('.dropdown-list');
-    setupDropdown(newInput, newList, () => PRODUCTS);
-  }
-
-  // ====== 시트에서 품목 목록 로드 ======
-  async function loadProducts() {
-    const banner = document.getElementById('loadingBanner');
-    const submitBtn = document.getElementById('submitBtn');
-    try {
-      const res = await fetch(WEB_APP_URL);
-      const data = await res.json();
-      if (data.products && Array.isArray(data.products)) {
-        PRODUCTS = data.products;
-        banner.style.background = '#d4edda';
-        banner.style.color = '#155724';
-        banner.textContent = `✅ 상품 ${PRODUCTS.length.toLocaleString()}개 로드 완료`;
-        setTimeout(() => { banner.style.display = 'none'; }, 2000);
-        submitBtn.disabled = false;
+  // ====== 라디오 버튼 선택 시 UI 처리 ======
+  const reasonGroup = document.getElementById('reasonGroup');
+  const reasonInput = document.getElementById('reason');
+  document.querySelectorAll('input[name="agreement"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.radio-option').forEach(opt => {
+        opt.classList.toggle('checked', opt.querySelector('input').checked);
+      });
+      if (radio.value === '현재는 도입 계획이 없습니다.' && radio.checked) {
+        reasonGroup.classList.add('show');
+        reasonInput.required = true;
       } else {
-        throw new Error('잘못된 응답 형식');
+        reasonGroup.classList.remove('show');
+        reasonInput.required = false;
+        reasonInput.value = '';
       }
-    } catch (err) {
-      banner.style.background = '#f8d7da';
-      banner.style.color = '#721c24';
-      banner.textContent = '❌ 상품 목록 로드 실패. 페이지를 새로고침 해주세요.';
-      console.error(err);
-    }
-  }
-
-  // 첫 품목 행 추가 + 품목 로드 시작
-  addItem();
-  loadProducts();
+    });
+  });
 
   // ====== 폼 제출 ======
   document.getElementById('surveyForm').addEventListener('submit', async e => {
     e.preventDefault();
     const branch = document.getElementById('branchSearch').value.trim();
     if (!BRANCHES.includes(branch)) {
-      showMessage('지점명을 목록에서 선택해 주세요.', 'error');
+      showMessage('매장명을 목록에서 선택해 주세요.', 'error');
       return;
     }
-    const rows = document.querySelectorAll('.item-row');
-    if (rows.length === 0) {
-      showMessage('최소 1개의 품목을 입력해 주세요.', 'error');
+    const agreementEl = document.querySelector('input[name="agreement"]:checked');
+    if (!agreementEl) {
+      showMessage('도입 동의 여부를 선택해 주세요.', 'error');
       return;
     }
-    const items = [];
-    let invalidProduct = '';
-    for (const row of rows) {
-      const name = row.querySelector('.itemName').value.trim();
-      const category = row.querySelector('.category').value;
-      const quantity = row.querySelector('.quantity').value;
-      if (!PRODUCTS.includes(name)) { invalidProduct = name; break; }
-      items.push({ category, itemName: name, quantity });
-    }
-    if (invalidProduct) {
-      showMessage(`"${invalidProduct}"은(는) 등록된 상품명이 아닙니다. 목록에서 선택해 주세요.`, 'error');
-      return;
+    const agreement = agreementEl.value;
+    let reason = '';
+    if (agreement === '현재는 도입 계획이 없습니다.') {
+      reason = reasonInput.value.trim();
+      if (!reason) {
+        showMessage('미도입 사유를 입력해 주세요.', 'error');
+        return;
+      }
     }
     try {
       await fetch(WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch, items })
+        body: JSON.stringify({ branch, agreement, reason })
       });
-      showMessage(`✅ 제출 완료! ${items.length}개 품목이 등록되었습니다.`, 'success');
+      showMessage('✅ 제출 완료! 설문에 참여해 주셔서 감사합니다.', 'success');
       document.getElementById('surveyForm').reset();
-      document.getElementById('itemsContainer').innerHTML = '';
-      itemCount = 0;
-      addItem();
+      reasonGroup.classList.remove('show');
+      document.querySelectorAll('.radio-option').forEach(opt => opt.classList.remove('checked'));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       showMessage('제출 중 오류가 발생했습니다: ' + err.message, 'error');

@@ -40,6 +40,44 @@
   #message { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; display: none; font-weight: bold; }
   .success { background: #d4edda; color: #155724; }
   .error { background: #f8d7da; color: #721c24; }
+   /* 제출 버튼 비활성화 스타일 */
+  button:disabled { background: #aaa; cursor: not-allowed; }
+
+  /* 완료 모달 */
+  .modal-overlay { 
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0, 0, 0, 0.6); z-index: 1000; 
+    justify-content: center; align-items: center; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box { 
+    background: white; padding: 30px 25px; border-radius: 12px; 
+    max-width: 420px; width: 100%; text-align: center; 
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    animation: popIn 0.3s ease-out;
+  }
+  @keyframes popIn { 
+    from { transform: scale(0.8); opacity: 0; } 
+    to { transform: scale(1); opacity: 1; } 
+  }
+  .modal-icon { font-size: 60px; margin-bottom: 10px; }
+  .modal-title { font-size: 22px; font-weight: bold; color: #2e7d32; margin-bottom: 12px; }
+  .modal-text { color: #555; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }
+  .modal-text strong { color: #333; }
+  .modal-btn { 
+    background: #4CAF50; color: white; padding: 12px 30px; 
+    border: none; border-radius: 6px; font-size: 15px; 
+    font-weight: bold; cursor: pointer; width: auto;
+  }
+  .modal-btn:hover { background: #45a049; }
+
+  /* 완료 후 화면 */
+  #completedView { display: none; background: white; padding: 30px; border-radius: 8px; text-align: center; border: 2px solid #4CAF50; }
+  #completedView.show { display: block; }
+  #completedView .check { font-size: 70px; margin-bottom: 15px; }
+  #completedView h2 { color: #2e7d32; margin: 0 0 12px 0; }
+  #completedView p { color: #555; line-height: 1.6; margin: 8px 0; }
+  #completedView .info-box { background: #f1f8e9; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: left; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -87,6 +125,32 @@
   <button type="submit">제출하기</button>
 </form>
 <div id="message"></div>
+<!-- 제출 완료 후 표시될 화면 -->
+<div id="completedView">
+  <div class="check">✅</div>
+  <h2>제출이 완료되었습니다</h2>
+  <p>설문에 참여해 주셔서 감사합니다.</p>
+  <div class="info-box">
+    <p><strong>📌 제출 매장 :</strong> <span id="submittedBranch"></span></p>
+    <p><strong>📌 응답 내용 :</strong> <span id="submittedAnswer"></span></p>
+    <p><strong>📌 제출 시각 :</strong> <span id="submittedTime"></span></p>
+  </div>
+  <p style="font-size: 13px; color: #888;">중복 제출 방지를 위해 폼이 잠겼습니다.<br>다시 제출이 필요한 경우 페이지를 새로고침해 주세요.</p>
+</div>
+
+<!-- 제출 완료 모달 팝업 -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal-box">
+    <div class="modal-icon">🎉</div>
+    <div class="modal-title">제출 완료!</div>
+    <div class="modal-text">
+      설문이 정상적으로 <strong>제출</strong>되었습니다.<br>
+      참여해 주셔서 감사합니다.
+    </div>
+    <button type="button" class="modal-btn" onclick="closeModal()">확인</button>
+  </div>
+</div>
+
 
 <script>
   // ====== 설정 ======
@@ -188,43 +252,80 @@
   });
 
   // ====== 폼 제출 ======
-  document.getElementById('surveyForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const branch = document.getElementById('branchSearch').value.trim();
-    if (!BRANCHES.includes(branch)) {
-      showMessage('매장명을 목록에서 선택해 주세요.', 'error');
+let isSubmitting = false; // 중복 제출 방지 플래그
+
+document.getElementById('surveyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  // 이미 제출 중이면 차단
+  if (isSubmitting) return;
+
+  const branch = document.getElementById('branchSearch').value.trim();
+  if (!BRANCHES.includes(branch)) {
+    showMessage('매장명을 목록에서 선택해 주세요.', 'error');
+    return;
+  }
+  const agreementEl = document.querySelector('input[name="agreement"]:checked');
+  if (!agreementEl) {
+    showMessage('도입 동의 여부를 선택해 주세요.', 'error');
+    return;
+  }
+  const agreement = agreementEl.value;
+  let reason = '';
+  if (agreement === '현재는 도입 계획이 없습니다.') {
+    reason = reasonInput.value.trim();
+    if (!reason) {
+      showMessage('미도입 사유를 입력해 주세요.', 'error');
       return;
     }
-    const agreementEl = document.querySelector('input[name="agreement"]:checked');
-    if (!agreementEl) {
-      showMessage('도입 동의 여부를 선택해 주세요.', 'error');
-      return;
-    }
-    const agreement = agreementEl.value;
-    let reason = '';
-    if (agreement === '현재는 도입 계획이 없습니다.') {
-      reason = reasonInput.value.trim();
-      if (!reason) {
-        showMessage('미도입 사유를 입력해 주세요.', 'error');
-        return;
-      }
-    }
-    try {
-      await fetch(WEB_APP_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch, agreement, reason })
-      });
-      showMessage('✅ 제출 완료! 설문에 참여해 주셔서 감사합니다.', 'success');
-      document.getElementById('surveyForm').reset();
-      reasonGroup.classList.remove('show');
-      document.querySelectorAll('.radio-option').forEach(opt => opt.classList.remove('checked'));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      showMessage('제출 중 오류가 발생했습니다: ' + err.message, 'error');
-    }
-  });
+  }
+
+  // 제출 시작: 버튼 비활성화 + 플래그 ON
+  isSubmitting = true;
+  const submitBtn = document.querySelector('#surveyForm button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ 제출 중... 잠시만 기다려 주세요';
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch, agreement, reason })
+    });
+
+    // 제출 완료 처리
+    const now = new Date();
+    const timeStr = now.toLocaleString('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
+    document.getElementById('submittedBranch').textContent = branch;
+    document.getElementById('submittedAnswer').textContent = agreement + (reason ? ` (사유: ${reason})` : '');
+    document.getElementById('submittedTime').textContent = timeStr;
+
+    // 폼 숨기고 완료 화면 표시
+    document.getElementById('surveyForm').style.display = 'none';
+    document.getElementById('completedView').classList.add('show');
+
+    // 모달 팝업 표시
+    document.getElementById('successModal').classList.add('show');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    // 실패 시 다시 제출할 수 있도록 복구
+    isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    showMessage('제출 중 오류가 발생했습니다: ' + err.message, 'error');
+  }
+});
+
+// 모달 닫기 함수
+function closeModal() {
+  document.getElementById('successModal').classList.remove('show');
+}
 
   function showMessage(text, type) {
     const msg = document.getElementById('message');

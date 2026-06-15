@@ -61,6 +61,72 @@
   #completedView p { color: #555; line-height: 1.6; margin: 8px 0; }
   #completedView .info-box { background: #fff3e0; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: left; font-size: 14px; }
   #completedView .info-box ul { margin: 8px 0; padding-left: 20px; }
+  /* 재고 현황판 */
+  .stock-panel-toggle { 
+    background: white; border: 2px solid #FF6F00; color: #FF6F00; 
+    width: 100%; padding: 12px; border-radius: 8px; 
+    font-size: 15px; font-weight: bold; margin-bottom: 15px; 
+    cursor: pointer; transition: all 0.2s;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .stock-panel-toggle:hover { background: #fff3e0; }
+  .stock-panel-toggle .arrow { transition: transform 0.3s; }
+  .stock-panel-toggle.open .arrow { transform: rotate(180deg); }
+  .stock-panel { 
+    display: none; background: white; border: 1px solid #ddd; 
+    border-radius: 8px; padding: 15px; margin-bottom: 20px; 
+  }
+  .stock-panel.show { display: block; }
+  .stock-panel-header { 
+    display: flex; gap: 8px; margin-bottom: 12px; 
+    flex-wrap: wrap; align-items: center;
+  }
+  .stock-panel-header input { 
+    flex: 1; min-width: 150px; padding: 8px; 
+    border: 1px solid #ccc; border-radius: 5px; font-size: 13px; 
+  }
+  .stock-panel-header select { 
+    width: auto; padding: 8px; border: 1px solid #ccc; 
+    border-radius: 5px; font-size: 13px; cursor: pointer;
+  }
+  .stock-summary { 
+    display: flex; gap: 8px; margin-bottom: 12px; 
+    flex-wrap: wrap; font-size: 12px;
+  }
+  .summary-pill { 
+    background: #f5f5f5; padding: 6px 12px; border-radius: 15px; 
+    font-weight: bold; color: #555;
+  }
+  .summary-pill.total { background: #e3f2fd; color: #1565c0; }
+  .summary-pill.low { background: #ffebee; color: #c62828; }
+  .summary-pill.sum { background: #fff3e0; color: #e65100; }
+  .stock-table-wrap { 
+    max-height: 400px; overflow-y: auto; 
+    border: 1px solid #eee; border-radius: 5px;
+  }
+  .stock-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .stock-table th { 
+    background: #FF6F00; color: white; padding: 10px 8px; 
+    text-align: left; position: sticky; top: 0; z-index: 1;
+    font-weight: bold;
+  }
+  .stock-table th.num { text-align: right; }
+  .stock-table td { 
+    padding: 8px; border-bottom: 1px solid #f0f0f0; 
+  }
+  .stock-table td.num { text-align: right; font-weight: bold; }
+  .stock-table tr:hover { background: #fff8f0; }
+  .stock-table tr.sold-out td { color: #999; background: #fafafa; }
+  .stock-row-badge { 
+    display: inline-block; padding: 2px 8px; border-radius: 10px; 
+    font-size: 11px; font-weight: bold; color: white;
+  }
+  .stock-row-badge.ok { background: #4CAF50; }
+  .stock-row-badge.low { background: #FF6F00; }
+  .stock-row-badge.critical { background: #d32f2f; }
+  .stock-row-badge.zero { background: #999; }
+  .stock-empty { text-align: center; color: #999; padding: 30px 15px; }
+  .last-updated { font-size: 11px; color: #888; text-align: right; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -71,6 +137,47 @@
 </div>
 
 <div id="loadingBanner">⏳ 상품 목록을 불러오는 중입니다...</div>
+<!-- 전체 재고 현황 토글 -->
+<button type="button" class="stock-panel-toggle" id="stockToggle" onclick="toggleStockPanel()">
+  <span>📊 전체 재고 현황 보기</span>
+  <span class="arrow">▼</span>
+</button>
+
+<div class="stock-panel" id="stockPanel">
+  <div class="stock-summary">
+    <span class="summary-pill total">전체 상품: <span id="summaryTotal">0</span></span>
+    <span class="summary-pill sum">총 잔여 수량: <span id="summarySum">0</span></span>
+    <span class="summary-pill low">품절 임박(≤5): <span id="summaryLow">0</span></span>
+  </div>
+  <div class="stock-panel-header">
+    <input type="text" id="stockSearch" placeholder="🔍 상품명 검색">
+    <select id="stockSort">
+      <option value="name">이름순</option>
+      <option value="stock-desc">재고 많은 순</option>
+      <option value="stock-asc">재고 적은 순</option>
+    </select>
+    <select id="stockFilter">
+      <option value="all">전체 보기</option>
+      <option value="available">발주 가능만</option>
+      <option value="low">품절 임박만</option>
+    </select>
+    <button type="button" onclick="refreshStock()" style="background:#2196F3;color:white;padding:8px 12px;font-size:13px;">🔄 새로고침</button>
+  </div>
+  <div class="stock-table-wrap">
+    <table class="stock-table">
+      <thead>
+        <tr>
+          <th style="width: 50px;">No.</th>
+          <th>상품명</th>
+          <th class="num" style="width: 90px;">잔여 수량</th>
+          <th style="width: 80px;">상태</th>
+        </tr>
+      </thead>
+      <tbody id="stockTableBody"></tbody>
+    </table>
+  </div>
+  <div class="last-updated" id="lastUpdated"></div>
+</div>
 
 <form id="surveyForm">
   <div class="form-group">
@@ -198,8 +305,8 @@ function setupProductDropdown(inputEl, listEl, qtyInput) {
       return;
     }
     const filtered = data
-      .filter(item => item.name.toLowerCase().includes(keyword.toLowerCase()))
-      .slice(0, 200);
+  .filter(item => item.stock > 0 && item.name.toLowerCase().includes(keyword.toLowerCase()))
+  .slice(0, 200);
     if (filtered.length === 0) {
       listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없거나 재고가 소진되었습니다</div>';
     } else {
@@ -306,6 +413,87 @@ function setupProductDropdown(inputEl, listEl, qtyInput) {
       console.error(err);
     }
   }
+// ====== 재고 현황판 ======
+function toggleStockPanel() {
+  const panel = document.getElementById('stockPanel');
+  const toggle = document.getElementById('stockToggle');
+  panel.classList.toggle('show');
+  toggle.classList.toggle('open');
+  if (panel.classList.contains('show')) {
+    renderStockTable();
+  }
+}
+
+function renderStockTable() {
+  const tbody = document.getElementById('stockTableBody');
+  const searchVal = document.getElementById('stockSearch').value.toLowerCase().trim();
+  const sortVal = document.getElementById('stockSort').value;
+  const filterVal = document.getElementById('stockFilter').value;
+
+  let list = PRODUCTS.slice(); // 복사
+
+  // 필터링
+  if (searchVal) {
+    list = list.filter(p => p.name.toLowerCase().includes(searchVal));
+  }
+  if (filterVal === 'available') {
+    list = list.filter(p => p.stock > 0);
+  } else if (filterVal === 'low') {
+    list = list.filter(p => p.stock > 0 && p.stock <= 5);
+  }
+
+  // 정렬
+  if (sortVal === 'name') {
+    list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  } else if (sortVal === 'stock-desc') {
+    list.sort((a, b) => b.stock - a.stock);
+  } else if (sortVal === 'stock-asc') {
+    list.sort((a, b) => a.stock - b.stock);
+  }
+
+  // 요약 통계 (전체 PRODUCTS 기준)
+  const total = PRODUCTS.length;
+  const sumStock = PRODUCTS.reduce((s, p) => s + p.stock, 0);
+  const lowCount = PRODUCTS.filter(p => p.stock > 0 && p.stock <= 5).length;
+  document.getElementById('summaryTotal').textContent = total.toLocaleString();
+  document.getElementById('summarySum').textContent = sumStock.toLocaleString();
+  document.getElementById('summaryLow').textContent = lowCount.toLocaleString();
+
+  // 표 렌더링
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="stock-empty">조건에 맞는 상품이 없습니다.</td></tr>';
+  } else {
+    tbody.innerHTML = list.map((p, idx) => {
+      let badge, badgeClass, rowClass = '';
+      if (p.stock === 0) {
+        badge = '품절'; badgeClass = 'zero'; rowClass = 'sold-out';
+      } else if (p.stock <= 3) {
+        badge = '긴급'; badgeClass = 'critical';
+      } else if (p.stock <= 5) {
+        badge = '임박'; badgeClass = 'low';
+      } else {
+        badge = '여유'; badgeClass = 'ok';
+      }
+      const safeName = p.name.replace(/</g, '&lt;');
+      return `<tr class="${rowClass}">
+        <td>${idx + 1}</td>
+        <td>${safeName}</td>
+        <td class="num">${p.stock.toLocaleString()}</td>
+        <td><span class="stock-row-badge ${badgeClass}">${badge}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // 마지막 업데이트 시각
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent =
+    '마지막 업데이트: ' + now.toLocaleString('ko-KR');
+}
+
+// 검색·정렬·필터 이벤트
+document.getElementById('stockSearch').addEventListener('input', renderStockTable);
+document.getElementById('stockSort').addEventListener('change', renderStockTable);
+document.getElementById('stockFilter').addEventListener('change', renderStockTable);
 
   function refreshStock() {
     document.getElementById('loadingBanner').style.display = 'block';

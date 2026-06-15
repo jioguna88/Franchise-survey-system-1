@@ -189,58 +189,52 @@
     inputEl.addEventListener('input', () => { render(inputEl.value); listEl.classList.add('show'); });
   }
 
-  // ====== 드롭다운 (상품용 - {name, stock}) ======
-  function setupProductDropdown(inputEl, listEl, qtyInput) {
-    function render(keyword = '') {
-      const data = PRODUCTS;
-      if (data.length === 0) {
-        listEl.innerHTML = '<div class="dropdown-item no-result">상품 목록 로드 중...</div>';
-        return;
-      }
-      if (data.length > 100 && keyword.length < 1) {
-        listEl.innerHTML = '<div class="dropdown-item no-result">검색어를 입력해 주세요</div>';
-        return;
-      }
-      const filtered = data
-        .filter(item => item.name.toLowerCase().includes(keyword.toLowerCase()))
-        .slice(0, 100);
-      if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없거나 재고가 소진되었습니다</div>';
-      } else {
-        listEl.innerHTML = filtered.map(item => {
-          const lowClass = item.stock <= 5 ? ' low' : '';
-          return `<div class="dropdown-item" data-name="${item.name.replace(/"/g, '&quot;')}" data-stock="${item.stock}">
-            <span>${item.name}</span>
-            <span class="stock-badge${lowClass}">잔여 ${item.stock}</span>
-          </div>`;
-        }).join('');
-        listEl.querySelectorAll('.dropdown-item:not(.no-result)').forEach(el => {
-          el.addEventListener('mousedown', e => {
-            e.preventDefault();
-            const name = el.dataset.name;
-            const stock = Number(el.dataset.stock);
-            inputEl.value = name;
-            inputEl.dataset.stock = stock;
-            qtyInput.max = stock;
-            // 재고 표시 업데이트
-            const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
-            if (stockInfo) stockInfo.textContent = `※ 최대 발주 가능 수량: ${stock}개`;
-            listEl.classList.remove('show');
-          });
-        });
-      }
+// ====== 드롭다운 (상품용 - {name, stock}) ======
+function setupProductDropdown(inputEl, listEl, qtyInput) {
+  function render(keyword = '') {
+    const data = PRODUCTS;
+    if (data.length === 0) {
+      listEl.innerHTML = '<div class="dropdown-item no-result">상품 목록 로드 중...</div>';
+      return;
     }
-    inputEl.addEventListener('focus', () => { render(inputEl.value); listEl.classList.add('show'); });
-    inputEl.addEventListener('input', () => {
-      // 입력 변경 시 선택 해제로 간주
-      inputEl.dataset.stock = '';
-      qtyInput.max = '';
-      const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
-      if (stockInfo) stockInfo.textContent = '';
-      render(inputEl.value);
-      listEl.classList.add('show');
-    });
+    const filtered = data
+      .filter(item => item.name.toLowerCase().includes(keyword.toLowerCase()))
+      .slice(0, 200);
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없거나 재고가 소진되었습니다</div>';
+    } else {
+      listEl.innerHTML = filtered.map(item => {
+        const lowClass = item.stock <= 5 ? ' low' : '';
+        return `<div class="dropdown-item" data-name="${item.name.replace(/"/g, '&quot;')}" data-stock="${item.stock}">
+          <span>${item.name}</span>
+          <span class="stock-badge${lowClass}">잔여 ${item.stock}</span>
+        </div>`;
+      }).join('');
+      listEl.querySelectorAll('.dropdown-item:not(.no-result)').forEach(el => {
+        el.addEventListener('mousedown', e => {
+          e.preventDefault();
+          const name = el.dataset.name;
+          const stock = Number(el.dataset.stock);
+          inputEl.value = name;
+          inputEl.dataset.stock = stock;
+          qtyInput.max = stock;
+          const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
+          if (stockInfo) stockInfo.textContent = `※ 최대 발주 가능 수량: ${stock}개`;
+          listEl.classList.remove('show');
+        });
+      });
+    }
   }
+  inputEl.addEventListener('focus', () => { render(inputEl.value); listEl.classList.add('show'); });
+  inputEl.addEventListener('input', () => {
+    inputEl.dataset.stock = '';
+    qtyInput.max = '';
+    const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
+    if (stockInfo) stockInfo.textContent = '';
+    render(inputEl.value);
+    listEl.classList.add('show');
+  });
+}
 
   document.addEventListener('click', e => {
     if (!e.target.closest('.searchable-dropdown')) {
@@ -269,7 +263,7 @@
         <div>
           <label>상품명</label>
           <div class="searchable-dropdown">
-            <input type="text" class="itemName" placeholder="상품명 검색" autocomplete="off" required>
+            <input type="text" class="itemName" placeholder="클릭하여 전체 목록 보기 또는 검색" autocomplete="off" required>
             <div class="dropdown-list"></div>
           </div>
           <small class="stock-info"></small>

@@ -127,6 +127,26 @@
   .stock-row-badge.zero { background: #999; }
   .stock-empty { text-align: center; color: #999; padding: 30px 15px; }
   .last-updated { font-size: 11px; color: #888; text-align: right; margin-top: 8px; }
+   /* 가격 표시 */
+  .price-badge {
+    background: #1565c0; color: white; font-size: 11px;
+    padding: 2px 8px; border-radius: 10px; font-weight: bold;
+    margin-right: 4px;
+  }
+  .dropdown-item .badges { display: flex; gap: 4px; }
+  .subtotal-info {
+    display: block; color: #1565c0; font-size: 13px;
+    margin-top: 6px; font-weight: bold;
+  }
+  .total-amount {
+    background: #1565c0; color: white;
+    padding: 14px; border-radius: 8px;
+    text-align: right; font-size: 16px;
+    font-weight: bold; margin-bottom: 12px;
+  }
+  .total-amount small { font-size: 12px; opacity: 0.85; font-weight: normal; }
+  .stock-table th.price, .stock-table td.price { text-align: right; width: 100px; }
+
 </style>
 </head>
 <body>
@@ -166,13 +186,14 @@
   <div class="stock-table-wrap">
     <table class="stock-table">
       <thead>
-        <tr>
-          <th style="width: 50px;">No.</th>
-          <th>상품명</th>
-          <th class="num" style="width: 90px;">잔여 수량</th>
-          <th style="width: 80px;">상태</th>
-        </tr>
-      </thead>
+  <tr>
+    <th style="width: 40px;">No.</th>
+    <th>상품명</th>
+    <th class="price">납품가</th>
+    <th class="num" style="width: 80px;">잔여</th>
+    <th style="width: 70px;">상태</th>
+  </tr>
+</thead>
       <tbody id="stockTableBody"></tbody>
     </table>
   </div>
@@ -188,6 +209,7 @@
     </div>
   </div>
   <div id="itemsContainer"></div>
+  <div class="total-amount" id="totalAmount" style="display:none;">총 발주 금액 0원</div>
   <button type="button" class="btn-add" onclick="addItem()">＋ 품목 추가</button>
   <button type="submit" class="btn-submit" id="submitBtn" disabled>발주 제출하기</button>
 </form>
@@ -311,24 +333,34 @@ function setupProductDropdown(inputEl, listEl, qtyInput) {
       listEl.innerHTML = '<div class="dropdown-item no-result">검색 결과가 없거나 재고가 소진되었습니다</div>';
     } else {
       listEl.innerHTML = filtered.map(item => {
-        const lowClass = item.stock <= 5 ? ' low' : '';
-        return `<div class="dropdown-item" data-name="${item.name.replace(/"/g, '&quot;')}" data-stock="${item.stock}">
-          <span>${item.name}</span>
-          <span class="stock-badge${lowClass}">잔여 ${item.stock}</span>
-        </div>`;
-      }).join('');
-      listEl.querySelectorAll('.dropdown-item:not(.no-result)').forEach(el => {
-        el.addEventListener('mousedown', e => {
-          e.preventDefault();
-          const name = el.dataset.name;
-          const stock = Number(el.dataset.stock);
-          inputEl.value = name;
-          inputEl.dataset.stock = stock;
-          qtyInput.max = stock;
-          const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
-          if (stockInfo) stockInfo.textContent = `※ 최대 발주 가능 수량: ${stock}개`;
-          listEl.classList.remove('show');
-        });
+  const lowClass = item.stock <= 5 ? ' low' : '';
+  const priceStr = item.price ? `${item.price.toLocaleString()}원` : '가격 미정';
+  return `<div class="dropdown-item" data-name="${item.name.replace(/"/g, '&quot;')}" data-stock="${item.stock}" data-price="${item.price}">
+    <span>${item.name}</span>
+    <span class="badges">
+      <span class="price-badge">${priceStr}</span>
+      <span class="stock-badge${lowClass}">잔여 ${item.stock}</span>
+    </span>
+  </div>`;
+}).join('');
+      el.addEventListener('mousedown', e => {
+  e.preventDefault();
+  const name = el.dataset.name;
+  const stock = Number(el.dataset.stock);
+  const price = Number(el.dataset.price);
+  inputEl.value = name;
+  inputEl.dataset.stock = stock;
+  inputEl.dataset.price = price;
+  qtyInput.max = stock;
+  const stockInfo = inputEl.closest('.row-grid').querySelector('.stock-info');
+  if (stockInfo) {
+    const priceStr = price ? `${price.toLocaleString()}원` : '미정';
+    stockInfo.textContent = `※ 납품가: ${priceStr} / 최대 발주 가능: ${stock}개`;
+  }
+  // 소계 갱신
+  updateSubtotal(qtyInput);
+  listEl.classList.remove('show');
+});
       });
     }
   }
@@ -377,9 +409,10 @@ function setupProductDropdown(inputEl, listEl, qtyInput) {
           <small class="hint">⚠ 목록에 있는 상품만 발주 가능</small>
         </div>
         <div>
-          <label>발주 수량</label>
-          <input type="number" class="quantity" min="1" required>
-        </div>
+  <label>발주 수량</label>
+  <input type="number" class="quantity" min="1" required>
+  <small class="subtotal-info"></small>
+</div>
       </div>
     `;
     container.appendChild(div);
@@ -387,7 +420,42 @@ function setupProductDropdown(inputEl, listEl, qtyInput) {
     const newList = div.querySelector('.dropdown-list');
     const qtyInput = div.querySelector('.quantity');
     setupProductDropdown(newInput, newList, qtyInput);
+
+// 수량 변경 시 소계 계산
+qtyInput.addEventListener('input', () => updateSubtotal(qtyInput));
+
   }
+function updateSubtotal(qtyInput) {
+  const row = qtyInput.closest('.row-grid');
+  const nameInput = row.querySelector('.itemName');
+  const subtotalEl = row.querySelector('.subtotal-info');
+  const price = Number(nameInput.dataset.price) || 0;
+  const qty = Number(qtyInput.value) || 0;
+  if (price && qty > 0) {
+    subtotalEl.textContent = `소계: ${(price * qty).toLocaleString()}원`;
+  } else {
+    subtotalEl.textContent = '';
+  }
+  updateTotalAmount();
+}
+
+function updateTotalAmount() {
+  let total = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const price = Number(row.querySelector('.itemName').dataset.price) || 0;
+    const qty = Number(row.querySelector('.quantity').value) || 0;
+    total += price * qty;
+  });
+  const totalEl = document.getElementById('totalAmount');
+  if (totalEl) {
+    if (total > 0) {
+      totalEl.style.display = 'block';
+      totalEl.innerHTML = `총 발주 금액 <small>(VAT 별도)</small><br>${total.toLocaleString()}원`;
+    } else {
+      totalEl.style.display = 'none';
+    }
+  }
+}
 
   // ====== 상품 목록 로드 ======
   async function loadProducts() {
@@ -461,7 +529,7 @@ function renderStockTable() {
 
   // 표 렌더링
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="stock-empty">조건에 맞는 상품이 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="stock-empty">조건에 맞는 상품이 없습니다.</td></tr>';
   } else {
     tbody.innerHTML = list.map((p, idx) => {
       let badge, badgeClass, rowClass = '';
@@ -476,11 +544,12 @@ function renderStockTable() {
       }
       const safeName = p.name.replace(/</g, '&lt;');
       return `<tr class="${rowClass}">
-        <td>${idx + 1}</td>
-        <td>${safeName}</td>
-        <td class="num">${p.stock.toLocaleString()}</td>
-        <td><span class="stock-row-badge ${badgeClass}">${badge}</span></td>
-      </tr>`;
+  <td>${idx + 1}</td>
+  <td>${safeName}</td>
+  <td class="price">${p.price ? p.price.toLocaleString() + '원' : '-'}</td>
+  <td class="num">${p.stock.toLocaleString()}</td>
+  <td><span class="stock-row-badge ${badgeClass}">${badge}</span></td>
+</tr>`;
     }).join('');
   }
 
@@ -591,18 +660,29 @@ document.getElementById('stockFilter').addEventListener('change', renderStockTab
   });
 
   function showSuccess(branch, items) {
-    const now = new Date();
-    const timeStr = now.toLocaleString('ko-KR');
-    document.getElementById('submittedBranch').textContent = branch;
-    document.getElementById('submittedTime').textContent = timeStr;
-    const ul = document.getElementById('submittedItems');
-    ul.innerHTML = items.map(it => `<li>${it.itemName} - ${it.quantity}개</li>`).join('');
+  const now = new Date();
+  const timeStr = now.toLocaleString('ko-KR');
+  document.getElementById('submittedBranch').textContent = branch;
+  document.getElementById('submittedTime').textContent = timeStr;
+  
+  // 가격 정보 매핑
+  const priceMap = {};
+  PRODUCTS.forEach(p => { priceMap[p.name] = p.price; });
+  
+  let grandTotal = 0;
+  const ul = document.getElementById('submittedItems');
+  ul.innerHTML = items.map(it => {
+    const price = priceMap[it.itemName] || 0;
+    const sub = price * it.quantity;
+    grandTotal += sub;
+    return `<li>${it.itemName} - ${it.quantity}개 × ${price.toLocaleString()}원 = <strong>${sub.toLocaleString()}원</strong></li>`;
+  }).join('') + `<li style="margin-top:10px;border-top:1px solid #ccc;padding-top:8px;list-style:none;margin-left:-20px;"><strong>총 발주 금액: ${grandTotal.toLocaleString()}원</strong> <small>(VAT 별도)</small></li>`;
 
-    document.getElementById('surveyForm').style.display = 'none';
-    document.getElementById('completedView').classList.add('show');
-    document.getElementById('successModal').classList.add('show');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  document.getElementById('surveyForm').style.display = 'none';
+  document.getElementById('completedView').classList.add('show');
+  document.getElementById('successModal').classList.add('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
   function showStockShortage(insufficientItems) {
     const text = '아래 상품은 재고가 부족하여 발주가 처리되지 않았습니다.<br><br>' +

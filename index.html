@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>다이클로 창고대방출 발주서</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
 <meta property="og:title" content="다이클로 창고대방출 발주서">
 <meta property="og:description" content="창고대방출 상품 발주를 접수합니다. 선착순 한정 수량입니다.">
 <meta property="og:type" content="website">
@@ -45,7 +46,6 @@
   .total-amount small { font-size: 12px; opacity: 0.85; font-weight: normal; }
   #loadingBanner { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 15px; font-size: 14px; }
 
-  /* 재고 현황판 */
   .stock-panel-toggle { background: white; border: 2px solid #FF6F00; color: #FF6F00; width: 100%; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: bold; margin-bottom: 15px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
   .stock-panel-toggle:hover { background: #fff3e0; }
   .stock-panel-toggle .arrow { transition: transform 0.3s; }
@@ -77,7 +77,6 @@
   .stock-empty { text-align: center; color: #999; padding: 30px 15px; }
   .last-updated { font-size: 11px; color: #888; text-align: right; margin-top: 8px; }
 
-  /* 모달 */
   .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
   .modal-overlay.show { display: flex; }
   .modal-box { background: white; padding: 30px 25px; border-radius: 12px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out; }
@@ -91,7 +90,6 @@
   .modal-btn { background: #FF6F00; color: white; padding: 12px 30px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
   .modal-btn:hover { background: #E65100; }
 
-  /* 완료 화면 */
   #completedView { display: none; background: white; padding: 30px; border-radius: 8px; text-align: center; border: 2px solid #FF6F00; }
   #completedView.show { display: block; }
   #completedView .check { font-size: 70px; margin-bottom: 15px; }
@@ -112,7 +110,6 @@
 
 <div id="loadingBanner">⏳ 상품 목록을 불러오는 중입니다...</div>
 
-<!-- 전체 재고 현황 토글 -->
 <button type="button" class="stock-panel-toggle" id="stockToggle" onclick="toggleStockPanel()">
   <span>📊 전체 재고 현황 보기</span>
   <span class="arrow">▼</span>
@@ -171,7 +168,6 @@
   <button type="submit" class="btn-submit" id="submitBtn" disabled>발주 제출하기</button>
 </form>
 
-<!-- 완료 화면 -->
 <div id="completedView">
   <div class="check">✅</div>
   <h2>발주가 정상 접수되었습니다</h2>
@@ -186,7 +182,6 @@
   <p style="font-size: 13px; color: #888;">중복 제출 방지를 위해 폼이 잠겼습니다.<br>추가 발주가 필요하면 페이지를 새로고침해 주세요.</p>
 </div>
 
-<!-- 성공 모달 -->
 <div class="modal-overlay" id="successModal">
   <div class="modal-box">
     <div class="modal-icon">🎉</div>
@@ -196,7 +191,6 @@
   </div>
 </div>
 
-<!-- 재고 부족 모달 -->
 <div class="modal-overlay" id="stockModal">
   <div class="modal-box">
     <div class="modal-icon">⚠️</div>
@@ -205,6 +199,12 @@
     <button type="button" class="modal-btn" onclick="closeModal('stockModal'); refreshStock();">확인 (목록 갱신)</button>
   </div>
 </div>
+
+<!-- 숨겨진 form: POST 제출용 -->
+<form id="hiddenForm" method="POST" target="hiddenIframe" style="display:none;">
+  <input type="hidden" name="payload" id="hiddenPayload">
+</form>
+<iframe name="hiddenIframe" id="hiddenIframe" style="display:none;"></iframe>
 
 <script>
   // ====== 설정 ======
@@ -251,6 +251,34 @@
   let PRODUCTS = [];
   let itemCount = 0;
   let isSubmitting = false;
+  let jsonpCounter = 0;
+
+  // ====== JSONP 방식으로 GET 요청 (CORS 우회) ======
+  function jsonpRequest(url, callback) {
+    const callbackName = 'jsonp_cb_' + (++jsonpCounter) + '_' + Date.now();
+    const script = document.createElement('script');
+    const cleanup = () => {
+      delete window[callbackName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      callback(new Error('요청 시간 초과 (30초)'), null);
+    }, 30000);
+    window[callbackName] = (data) => {
+      clearTimeout(timeoutId);
+      cleanup();
+      callback(null, data);
+    };
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      cleanup();
+      callback(new Error('스크립트 로드 실패'), null);
+    };
+    const sep = url.includes('?') ? '&' : '?';
+    script.src = url + sep + 'callback=' + callbackName + '&t=' + Date.now();
+    document.body.appendChild(script);
+  }
 
   // ====== 지점 드롭다운 ======
   function setupBranchDropdown(inputEl, listEl, dataList) {
@@ -345,7 +373,6 @@
     BRANCHES
   );
 
-  // ====== 품목 행 추가 ======
   function addItem() {
     itemCount++;
     const container = document.getElementById('itemsContainer');
@@ -416,41 +443,43 @@
     }
   }
 
-  // ====== 상품 목록 로드 ======
-  async function loadProducts() {
+  // ====== 상품 목록 로드 (JSONP) ======
+  function loadProducts() {
     const banner = document.getElementById('loadingBanner');
     const submitBtn = document.getElementById('submitBtn');
-    try {
-      const res = await fetch(WEB_APP_URL);
-      const data = await res.json();
-      if (data.products && Array.isArray(data.products)) {
+    banner.style.display = 'block';
+    banner.style.background = '#fff3cd';
+    banner.style.color = '#856404';
+    banner.textContent = '⏳ 상품 목록을 불러오는 중입니다...';
+
+    jsonpRequest(WEB_APP_URL, (err, data) => {
+      if (err) {
+        banner.style.background = '#f8d7da';
+        banner.style.color = '#721c24';
+        banner.textContent = '❌ 상품 목록 로드 실패: ' + err.message + ' (페이지 새로고침 필요)';
+        console.error(err);
+        return;
+      }
+      if (data && data.products && Array.isArray(data.products)) {
         PRODUCTS = data.products;
         banner.style.background = '#d4edda';
         banner.style.color = '#155724';
         banner.textContent = `✅ 발주 가능 상품 ${PRODUCTS.filter(p=>p.stock>0).length.toLocaleString()}개 / 전체 ${PRODUCTS.length.toLocaleString()}개 로드 완료`;
         setTimeout(() => { banner.style.display = 'none'; }, 2500);
         submitBtn.disabled = false;
-        // 현황판이 열려 있으면 갱신
         if (document.getElementById('stockPanel').classList.contains('show')) {
           renderStockTable();
         }
       } else {
-        throw new Error('잘못된 응답 형식');
+        banner.style.background = '#f8d7da';
+        banner.style.color = '#721c24';
+        banner.textContent = '❌ 응답 형식 오류: ' + JSON.stringify(data).substring(0, 100);
+        console.error('잘못된 응답:', data);
       }
-    } catch (err) {
-      banner.style.background = '#f8d7da';
-      banner.style.color = '#721c24';
-      banner.textContent = '❌ 상품 목록 로드 실패. 페이지를 새로고침 해주세요.';
-      console.error(err);
-    }
+    });
   }
 
   function refreshStock() {
-    const banner = document.getElementById('loadingBanner');
-    banner.style.display = 'block';
-    banner.style.background = '#fff3cd';
-    banner.style.color = '#856404';
-    banner.textContent = '⏳ 최신 재고를 다시 불러오는 중...';
     loadProducts();
   }
 
@@ -480,12 +509,9 @@
     else if (sortVal === 'price-desc') list.sort((a, b) => b.price - a.price);
     else if (sortVal === 'price-asc') list.sort((a, b) => a.price - b.price);
 
-    const total = PRODUCTS.length;
-    const sumStock = PRODUCTS.reduce((s, p) => s + p.stock, 0);
-    const lowCount = PRODUCTS.filter(p => p.stock > 0 && p.stock <= 5).length;
-    document.getElementById('summaryTotal').textContent = total.toLocaleString();
-    document.getElementById('summarySum').textContent = sumStock.toLocaleString();
-    document.getElementById('summaryLow').textContent = lowCount.toLocaleString();
+    document.getElementById('summaryTotal').textContent = PRODUCTS.length.toLocaleString();
+    document.getElementById('summarySum').textContent = PRODUCTS.reduce((s, p) => s + p.stock, 0).toLocaleString();
+    document.getElementById('summaryLow').textContent = PRODUCTS.filter(p => p.stock > 0 && p.stock <= 5).length.toLocaleString();
 
     if (list.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" class="stock-empty">조건에 맞는 상품이 없습니다.</td></tr>';
@@ -515,12 +541,11 @@
   document.getElementById('stockSort').addEventListener('change', renderStockTable);
   document.getElementById('stockFilter').addEventListener('change', renderStockTable);
 
-  // 초기화
   addItem();
   loadProducts();
 
-  // ====== 폼 제출 ======
-  document.getElementById('surveyForm').addEventListener('submit', async e => {
+  // ====== 폼 제출 (hidden iframe 방식) ======
+  document.getElementById('surveyForm').addEventListener('submit', e => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -558,7 +583,6 @@
       items.push({ itemName: name, quantity: qty });
     }
 
-    // 중복 상품 합산 검증
     const totalByName = {};
     items.forEach(it => {
       totalByName[it.itemName] = (totalByName[it.itemName] || 0) + it.quantity;
@@ -571,4 +595,60 @@
     }
 
     isSubmitting = true;
-    const submitBtn = document.getElementById('
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ 발주 제출 중... 잠시만 기다려 주세요';
+
+    // hidden iframe + form 방식으로 POST (CORS 우회)
+    const hiddenForm = document.getElementById('hiddenForm');
+    const hiddenPayload = document.getElementById('hiddenPayload');
+    const hiddenIframe = document.getElementById('hiddenIframe');
+
+    hiddenForm.action = WEB_APP_URL;
+    hiddenPayload.value = JSON.stringify({ branch, items });
+
+    // iframe 로드 완료 시 성공 처리
+    const onLoad = () => {
+      hiddenIframe.removeEventListener('load', onLoad);
+      // iframe 내용은 CORS 때문에 읽을 수 없으므로 성공으로 간주
+      showSuccess(branch, items);
+      // 5초 후 최신 재고 다시 로드
+      setTimeout(() => loadProducts(), 3000);
+    };
+    hiddenIframe.addEventListener('load', onLoad);
+
+    hiddenForm.submit();
+  });
+
+  function showSuccess(branch, items) {
+    const now = new Date();
+    const timeStr = now.toLocaleString('ko-KR');
+    document.getElementById('submittedBranch').textContent = branch;
+    document.getElementById('submittedTime').textContent = timeStr;
+
+    const priceMap = {};
+    PRODUCTS.forEach(p => { priceMap[p.name] = p.price || 0; });
+
+    let grandTotal = 0;
+    const ul = document.getElementById('submittedItems');
+    ul.innerHTML = items.map(it => {
+      const price = priceMap[it.itemName] || 0;
+      const sub = price * it.quantity;
+      grandTotal += sub;
+      return `<li>${it.itemName} — ${it.quantity}개 × ${price.toLocaleString()}원 = <strong>${sub.toLocaleString()}원</strong></li>`;
+    }).join('');
+    document.getElementById('submittedTotal').innerHTML =
+      `총 발주 금액: <strong>${grandTotal.toLocaleString()}원</strong> <small>(VAT 별도)</small>`;
+
+    document.getElementById('surveyForm').style.display = 'none';
+    document.getElementById('completedView').classList.add('show');
+    document.getElementById('successModal').classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+</script>
+</body>
+</html>

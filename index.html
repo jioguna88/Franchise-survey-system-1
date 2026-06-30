@@ -102,7 +102,7 @@
       <input type="number" id="qty1" min="0" placeholder="0" required>
     </div>
     <div class="field-row">
-      <label>상품 사진 첨부</label>
+      <label>상품 사진 첨부 <span style="color:#c62828;">(필수)</span></label>
       <input type="file" id="photo1" accept="image/*" multiple capture="environment">
       <span class="hint">패키지의 '살균' 표기가 보이도록 촬영해 주세요. (여러 장 첨부 가능)</span>
       <div class="photo-preview" id="preview1"></div>
@@ -117,7 +117,7 @@
       <input type="number" id="qty2" min="0" placeholder="0" required>
     </div>
     <div class="field-row">
-      <label>상품 사진 첨부</label>
+      <label>상품 사진 첨부 <span style="color:#c62828;">(필수)</span></label>
       <input type="file" id="photo2" accept="image/*" multiple capture="environment">
       <span class="hint">패키지의 '살균' 표기가 보이도록 촬영해 주세요. (여러 장 첨부 가능)</span>
       <div class="photo-preview" id="preview2"></div>
@@ -286,10 +286,22 @@
       alert('지점명을 목록에서 선택해 주세요.');
       return;
     }
-    const qty1 = Number(document.getElementById('qty1').value);
+        const qty1 = Number(document.getElementById('qty1').value);
     const qty2 = Number(document.getElementById('qty2').value);
     if (isNaN(qty1) || qty1 < 0 || isNaN(qty2) || qty2 < 0) {
       alert('잔여 수량을 0 이상의 숫자로 입력해 주세요.');
+      return;
+    }
+
+    // 사진 필수 검증
+    const files1 = Array.from(document.getElementById('photo1').files);
+    const files2 = Array.from(document.getElementById('photo2').files);
+    if (files1.length === 0) {
+      alert('① 만능행주티슈(80매)의 상품 사진을 첨부해 주세요.');
+      return;
+    }
+    if (files2.length === 0) {
+      alert('② [청소연구소] 곰팡이 제거젤의 상품 사진을 첨부해 주세요.');
       return;
     }
 
@@ -300,8 +312,6 @@
     showBanner('⏳ 사진을 업로드하고 있습니다. 사진 용량에 따라 시간이 걸릴 수 있습니다...', 'loading');
 
     try {
-      const files1 = Array.from(document.getElementById('photo1').files);
-      const files2 = Array.from(document.getElementById('photo2').files);
       const photos1 = await Promise.all(files1.map(fileToBase64));
       const photos2 = await Promise.all(files2.map(fileToBase64));
 

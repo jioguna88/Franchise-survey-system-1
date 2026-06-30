@@ -8,7 +8,7 @@
 <meta property="og:title" content="청소연구소 판매 불가 상품 교환 수량 조사">
 <meta property="og:description" content="살생물제품 표시허가 시행에 따른 판매 불가 상품 교환 수량 조사입니다. 매장 잔여 수량과 사진을 등록해 주세요.">
 <meta property="og:type" content="website">
-<!-- ↓↓↓ 회사 로고 이미지 URL로 교체하세요 (공개 접근 가능한 https 이미지 주소) -->
+<!-- ↓↓↓ 회사 로고 이미지 URL로 교체하세요 -->
 <meta property="og:image" content="https://raw.githubusercontent.com/jioguna88/Franchise-survey-system-1/refs/heads/main/CloverBridge_Logo.png">
 <style>
   * { box-sizing: border-box; }
@@ -34,7 +34,9 @@
   .product-card .pname { font-weight: bold; color: #2e7d32; font-size: 15px; margin-bottom: 10px; }
   .product-card .field-row { margin-bottom: 12px; }
   .photo-preview { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .photo-preview img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; }
+  .photo-thumb { position: relative; width: 80px; height: 80px; }
+  .photo-thumb img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; }
+  .photo-thumb .del { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: #d32f2f; color: #fff; border: none; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .hint { display: block; color: #888; font-size: 12px; margin-top: 4px; }
   button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
   .btn-submit { background: #2e7d32; color: white; width: 100%; padding: 15px; font-size: 16px; font-weight: bold; }
@@ -103,8 +105,8 @@
     </div>
     <div class="field-row">
       <label>상품 사진 첨부 <span style="color:#c62828;">(필수)</span></label>
-      <input type="file" id="photo1" accept="image/*" multiple capture="environment">
-      <span class="hint">패키지의 '살균' 표기가 보이도록 촬영해 주세요. (여러 장 첨부 가능)</span>
+      <input type="file" id="photo1" accept="image/*" multiple>
+      <span class="hint">'살균' 표기가 보이도록 촬영하거나 앨범에서 선택하세요. 여러 장 추가 가능하며, 추가할 때마다 누적됩니다.</span>
       <div class="photo-preview" id="preview1"></div>
     </div>
   </div>
@@ -118,8 +120,8 @@
     </div>
     <div class="field-row">
       <label>상품 사진 첨부 <span style="color:#c62828;">(필수)</span></label>
-      <input type="file" id="photo2" accept="image/*" multiple capture="environment">
-      <span class="hint">패키지의 '살균' 표기가 보이도록 촬영해 주세요. (여러 장 첨부 가능)</span>
+      <input type="file" id="photo2" accept="image/*" multiple>
+      <span class="hint">'살균' 표기가 보이도록 촬영하거나 앨범에서 선택하세요. 여러 장 추가 가능하며, 추가할 때마다 누적됩니다.</span>
       <div class="photo-preview" id="preview2"></div>
     </div>
   </div>
@@ -196,10 +198,13 @@
     '광주수완이용대점','구미산동 이용대점','대구수성이용대점','죽전대우월드마크점','양주옥정대방노블랜드점',
     '군자장안초점','간석래미안자이점','오산시티자이1차점','여주가남점','아산모종네오루체점','율하한림풀에버7단지점','김해주촌점',
     '엄궁롯데캐슬점', '부천원미점', '부천중동위브점', '창원마린푸르지오점', '빛가람중흥혁신점', '안양어반포레점'
-    // … 실제 지점 목록을 모두 넣으세요 (예시 HTML의 BRANCHES 배열을 그대로 사용하셔도 됩니다)
+    // … 실제 지점 목록을 모두 넣으세요
   ];
 
   let isSubmitting = false;
+
+  // 두 상품의 선택된 파일을 누적 보관
+  const photoStore = { photo1: [], photo2: [] };
 
   // ====== 지점 드롭다운 ======
   (function setupBranchDropdown() {
@@ -234,24 +239,42 @@
     }
   });
 
-  // ====== 사진 미리보기 ======
-  function setupPreview(inputId, previewId) {
-    document.getElementById(inputId).addEventListener('change', e => {
-      const preview = document.getElementById(previewId);
-      preview.innerHTML = '';
-      Array.from(e.target.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const img = document.createElement('img');
-          img.src = ev.target.result;
-          preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      });
+  // ====== 사진 누적 관리 ======
+  function setupPhotoInput(inputId, previewId) {
+    const input = document.getElementById(inputId);
+    input.addEventListener('change', e => {
+      Array.from(e.target.files).forEach(f => photoStore[inputId].push(f));
+      input.value = ''; // 같은 사진 다시 찍어도 change 발생하도록 초기화
+      renderPreview(inputId, previewId);
     });
   }
-  setupPreview('photo1', 'preview1');
-  setupPreview('photo2', 'preview2');
+
+  function renderPreview(inputId, previewId) {
+    const preview = document.getElementById(previewId);
+    preview.innerHTML = '';
+    photoStore[inputId].forEach((file, idx) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'photo-thumb';
+      const img = document.createElement('img');
+      const reader = new FileReader();
+      reader.onload = ev => { img.src = ev.target.result; };
+      reader.readAsDataURL(file);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del';
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        photoStore[inputId].splice(idx, 1);
+        renderPreview(inputId, previewId);
+      });
+      wrap.appendChild(img);
+      wrap.appendChild(del);
+      preview.appendChild(wrap);
+    });
+  }
+
+  setupPhotoInput('photo1', 'preview1');
+  setupPhotoInput('photo2', 'preview2');
 
   // 파일 → base64 변환
   function fileToBase64(file) {
@@ -260,7 +283,7 @@
       reader.onload = () => resolve({
         name: file.name,
         type: file.type,
-        data: reader.result.split(',')[1] // base64 본문만
+        data: reader.result.split(',')[1]
       });
       reader.onerror = reject;
       reader.readAsDataURL(file);
@@ -286,7 +309,7 @@
       alert('지점명을 목록에서 선택해 주세요.');
       return;
     }
-        const qty1 = Number(document.getElementById('qty1').value);
+    const qty1 = Number(document.getElementById('qty1').value);
     const qty2 = Number(document.getElementById('qty2').value);
     if (isNaN(qty1) || qty1 < 0 || isNaN(qty2) || qty2 < 0) {
       alert('잔여 수량을 0 이상의 숫자로 입력해 주세요.');
@@ -294,13 +317,11 @@
     }
 
     // 사진 필수 검증
-    const files1 = Array.from(document.getElementById('photo1').files);
-    const files2 = Array.from(document.getElementById('photo2').files);
-    if (files1.length === 0) {
+    if (photoStore.photo1.length === 0) {
       alert('① 만능행주티슈(80매)의 상품 사진을 첨부해 주세요.');
       return;
     }
-    if (files2.length === 0) {
+    if (photoStore.photo2.length === 0) {
       alert('② [청소연구소] 곰팡이 제거젤의 상품 사진을 첨부해 주세요.');
       return;
     }
@@ -312,8 +333,8 @@
     showBanner('⏳ 사진을 업로드하고 있습니다. 사진 용량에 따라 시간이 걸릴 수 있습니다...', 'loading');
 
     try {
-      const photos1 = await Promise.all(files1.map(fileToBase64));
-      const photos2 = await Promise.all(files2.map(fileToBase64));
+      const photos1 = await Promise.all(photoStore.photo1.map(fileToBase64));
+      const photos2 = await Promise.all(photoStore.photo2.map(fileToBase64));
 
       const payload = {
         branch: branch,
@@ -321,7 +342,6 @@
         product2: { name: '[청소연구소] 곰팡이 제거젤', quantity: qty2, photos: photos2 }
       };
 
-      // text/plain 으로 보내 preflight(CORS) 회피
       const res = await fetch(WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -337,7 +357,7 @@
     } catch (err) {
       console.error(err);
       showBanner('❌ 제출 실패: ' + err.message, 'error');
-      document.getElementById('errorModalText').textContent = '제출에 실패했습니다: ' + err.message + '\n잠시 후 다시 시도해 주세요.';
+      document.getElementById('errorModalText').textContent = '제출에 실패했습니다: ' + err.message + ' 잠시 후 다시 시도해 주세요.';
       document.getElementById('errorModal').classList.add('show');
       isSubmitting = false;
       submitBtn.disabled = false;
